@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut } from 'lucide-react';
+import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut } from 'lucide-react';
 import io from 'socket.io-client';
 
 const API_URL = 'http://localhost:5000/api';
@@ -29,12 +29,12 @@ const VoiceDropApp = () => {
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ email: '', password: '', username: '' });
   const [authError, setAuthError] = useState('');
-  //eslint-disable-next-line
-  const [savedPosts, setSavedPosts] = useState([]);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(!!localStorage.getItem('voicedrop_token'));
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
+  //eslint-disable-next-line
   const audioRef = useRef(null);
   const audioPlayerRefs = useRef({});
 
@@ -96,6 +96,8 @@ const VoiceDropApp = () => {
     if (authToken) {
       getCurrentUser();
       fetchPosts();
+    } else {
+      setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
@@ -114,12 +116,19 @@ const VoiceDropApp = () => {
         console.log('👤 Logged in as:', userData.username);
       } else {
         // Token invalid, clear it
+        console.log('❌ Invalid token, logging out');
         localStorage.removeItem('voicedrop_token');
         setAuthToken(null);
         setCurrentUser(null);
       }
     } catch (error) {
       console.error('Error getting current user:', error);
+      // On network error, also clear token
+      localStorage.removeItem('voicedrop_token');
+      setAuthToken(null);
+      setCurrentUser(null);
+    } finally {
+      setIsCheckingAuth(false);
     }
   };
 
@@ -127,10 +136,17 @@ const VoiceDropApp = () => {
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/posts`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       setPosts(data);
     } catch (error) {
       console.error('Error fetching posts:', error);
+      // Set empty array on error to prevent UI issues
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -283,7 +299,7 @@ const VoiceDropApp = () => {
     }
   };
 
- const handleLike = async (id) => {
+  const handleLike = async (id) => {
     if (!authToken) {
       alert('Please login to like posts');
       return;
@@ -301,17 +317,6 @@ const VoiceDropApp = () => {
       if (response.ok) {
         const data = await response.json();
         setPosts(posts.map(post => post.id === id ? data : post));
-        
-        // Update currentUser's likedPosts
-        setCurrentUser(prev => {
-          const isLiked = prev.likedPosts?.includes(id);
-          return {
-            ...prev,
-            likedPosts: isLiked 
-              ? prev.likedPosts.filter(postId => postId !== id)
-              : [...(prev.likedPosts || []), id]
-          };
-        });
       }
     } catch (error) {
       console.error('Error liking post:', error);
@@ -336,43 +341,11 @@ const VoiceDropApp = () => {
       if (response.ok) {
         const data = await response.json();
         setCurrentUser(prev => ({ ...prev, savedPosts: data.savedPosts }));
-        
-        // Update saved posts list if on saved tab
-        if (activeTab === 'saved') {
-          fetchSavedPosts();
-        }
       }
     } catch (error) {
       console.error('Error saving post:', error);
     }
   };
-
-  const fetchSavedPosts = async () => {
-    if (!authToken) return;
-
-    try {
-      const response = await fetch(`${API_URL}/posts/saved`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSavedPosts(data);
-      }
-    } catch (error) {
-      console.error('Error fetching saved posts:', error);
-    }
-  };
-
-  // Fetch saved posts when switching to saved tab
-  useEffect(() => {
-    if (activeTab === 'saved' && authToken) {
-      fetchSavedPosts();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, authToken]);
 
   const postVoiceDrop = async () => {
     if (!newPostTitle.trim() || !newPostCategory || !recordedAudio) {
@@ -479,6 +452,20 @@ const VoiceDropApp = () => {
   const filteredPosts = selectedCategory === 'all' 
     ? posts 
     : posts.filter(post => post.category === selectedCategory);
+
+  // Show loading screen while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-950 to-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Mic className="w-10 h-10 text-black" />
+          </div>
+          <p className="text-neutral-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If not authenticated, show login/signup
   if (!authToken) {
@@ -617,7 +604,7 @@ const VoiceDropApp = () => {
         </div>
       </div>
 
-     {/* Navigation Tabs */}
+      {/* Navigation Tabs */}
       <div className="bg-neutral-900 border-b border-neutral-800">
         <div className="max-w-3xl mx-auto px-4">
           <div className="flex gap-8">
@@ -644,19 +631,6 @@ const VoiceDropApp = () => {
             >
               Record
               {activeTab === 'record' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`py-4 px-1 relative transition-colors ${
-                activeTab === 'saved' 
-                  ? 'text-white font-medium' 
-                  : 'text-neutral-400 hover:text-neutral-200'
-              }`}
-            >
-              Saved
-              {activeTab === 'saved' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
               )}
             </button>
@@ -772,7 +746,7 @@ const VoiceDropApp = () => {
                           )}
                         </button>
                         <div className="flex-1 flex items-center gap-1 h-8">
-                          {post.waveform.map((height, i) => (
+                          {post.waveform?.map((height, i) => (
                             <div
                               key={i}
                               className={`flex-1 rounded-full transition-all ${
@@ -788,21 +762,17 @@ const VoiceDropApp = () => {
                       <div className="flex items-center gap-6 text-sm">
                         <button
                           onClick={() => handleLike(post.id)}
-                          className={`flex items-center gap-1.5 transition-colors ${
-                            currentUser?.likedPosts?.includes(post.id)
-                              ? 'text-red-500'
-                              : 'text-neutral-400 hover:text-red-400'
-                          }`}
+                          className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
                         >
-                          <Heart className={`w-4 h-4 ${currentUser?.likedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
-                          <span className="text-xs font-medium">{post.likes.toLocaleString()}</span>
+                          <Heart className="w-4 h-4" />
+                          <span className="text-xs font-medium">{post.likes?.toLocaleString() || 0}</span>
                         </button>
                         <button 
                           onClick={() => toggleComments(post.id)}
                           className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
                         >
                           <MessageCircle className="w-4 h-4" />
-                          <span className="text-xs font-medium">{post.comments}</span>
+                          <span className="text-xs font-medium">{post.comments || 0}</span>
                         </button>
                         <button 
                           onClick={() => handleSave(post.id)}
@@ -826,38 +796,30 @@ const VoiceDropApp = () => {
                               type="text"
                               value={newComment[post.id] || ''}
                               onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
-                              onKeyPress={(e) => e.key === 'Enter' && postComment(post.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  postComment(post.id);
+                                }
+                              }}
                               placeholder="Add a comment..."
-className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-white text-white placeholder:text-neutral-500"
+                              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
                             />
                             <button
                               onClick={() => postComment(post.id)}
-                              disabled={!newComment[post.id]?.trim()}
-                              className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="bg-white text-black px-3 py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors"
                             >
-                              Post
+                              Send
                             </button>
                           </div>
 
-                          <div className="space-y-3 max-h-64 overflow-y-auto">
-                            {comments[post.id]?.length > 0 ? (
-                              comments[post.id].map((comment) => (
-                                <div key={comment.id} className="flex gap-3">
-                                  <div className="w-8 h-8 bg-neutral-700 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <span className="text-xs">🎭</span>
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-xs font-medium text-white">{comment.username}</span>
-                                      <span className="text-xs text-neutral-500">{comment.timestamp}</span>
-                                    </div>
-                                    <p className="text-sm text-neutral-300">{comment.text}</p>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-sm text-neutral-500 text-center py-4">No comments yet. Be the first!</p>
-                            )}
+                          <div className="mt-3 space-y-3">
+                            {(comments[post.id] || []).map((c) => (
+                              <div key={c.id || c._id} className="bg-neutral-800 p-3 rounded-lg">
+                                <div className="text-xs text-neutral-400">{c.username}</div>
+                                <div className="text-sm text-white">{c.text}</div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
@@ -869,209 +831,58 @@ className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 
           </>
         )}
 
-        {activeTab === 'saved' && (
-          <>
-            <h2 className="text-2xl font-semibold mb-6 text-white">Saved Posts</h2>
-            
-            {savedPosts.length === 0 ? (
-              <div className="text-center py-12 text-neutral-400">
-                No saved posts yet. Bookmark posts to save them! 🔖
+        {activeTab === 'record' && (
+          <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
+            <div className="flex items-center gap-4 mb-4">
+              <button
+                onClick={toggleRecording}
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500' : 'bg-white'}`}
+                title="Record"
+              >
+                <Mic className={`w-6 h-6 ${isRecording ? 'text-white' : 'text-black'}`} />
+              </button>
+              <div>
+                <div className="text-sm text-neutral-400">Recording time</div>
+                <div className="font-medium text-white">{formatTime(recordingTime)}</div>
+              </div>
+            </div>
+
+            {recordedAudio ? (
+              <div className="flex items-center gap-3">
+                <audio controls src={recordedAudio.url} className="w-full" />
+                <button onClick={deleteRecording} className="px-3 py-2 bg-neutral-800 rounded-lg">Delete</button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {savedPosts.map(post => (
-                  <div 
-                    key={post.id}
-                    className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="w-11 h-11 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-lg">🎭</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <div className="font-medium text-white text-sm">{post.username}</div>
-                            <div className="text-xs text-neutral-500">{post.timestamp}</div>
-                          </div>
-                          <span className="text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
-                            {post.category}
-                          </span>
-                        </div>
-                        
-                        <h3 className="text-base font-medium text-white mb-4 leading-snug">{post.title}</h3>
-                        
-                        <div className="flex items-center gap-3 mb-4 bg-neutral-800 rounded-xl p-3">
-                          <button
-                            onClick={() => togglePlay(post.id, post.audioUrl)}
-                            disabled={!post.audioUrl}
-                            className="w-9 h-9 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {playingId === post.id ? (
-                              <Pause className="w-4 h-4 text-black" />
-                            ) : (
-                              <Play className="w-4 h-4 text-black ml-0.5" />
-                            )}
-                          </button>
-                          <div className="flex-1 flex items-center gap-1 h-8">
-                            {post.waveform.map((height, i) => (
-                              <div
-                                key={i}
-                                className={`flex-1 rounded-full transition-all ${
-                                  playingId === post.id ? 'bg-neutral-400' : 'bg-neutral-600'
-                                }`}
-                                style={{ height: `${height}%` }}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-xs text-neutral-400 font-medium tabular-nums">{post.duration}</span>
-                        </div>
-
-                        <div className="flex items-center gap-6 text-sm">
-                          <button
-                            onClick={() => handleLike(post.id)}
-                            className={`flex items-center gap-1.5 transition-colors ${
-                              currentUser?.likedPosts?.includes(post.id)
-                                ? 'text-red-500'
-                                : 'text-neutral-400 hover:text-red-400'
-                            }`}
-                          >
-                            <Heart className={`w-4 h-4 ${currentUser?.likedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
-                            <span className="text-xs font-medium">{post.likes.toLocaleString()}</span>
-                          </button>
-                          <button 
-                            onClick={() => handleSave(post.id)}
-                            className="flex items-center gap-1.5 text-yellow-400 transition-colors"
-                          >
-                            <Bookmark className="w-4 h-4 fill-current" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="text-sm text-neutral-500">No recording yet — press the button to start.</div>
             )}
-          </>
-        )}
-        {activeTab === 'record' && (
-          <div className="bg-neutral-900 rounded-2xl p-8 border border-neutral-800 max-w-xl mx-auto">
-            <h2 className="text-2xl font-semibold mb-8 text-white">Create a voice drop</h2>
-            
-            <div>
-              <div className="mb-5">
-                <label className="block text-sm font-medium text-neutral-300 mb-2">Title</label>
-                <input
-                  type="text"
-                  value={newPostTitle}
-                  onChange={(e) => setNewPostTitle(e.target.value)}
-                  placeholder="Give your voice drop a title..."
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent transition-all text-white placeholder:text-neutral-500"
-                />
-              </div>
 
-              <div className="mb-8">
-                <label className="block text-sm font-medium text-neutral-300 mb-2">Category</label>
-                <div className="relative">
-                  <select 
-                    value={newPostCategory}
-                    onChange={(e) => setNewPostCategory(e.target.value)}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent transition-all text-white appearance-none"
-                  >
-                    <option value="">Select a category</option>
-                    <option value="tedtalk">TED Talk</option>
-                    <option value="philosophy">Philosophy</option>
-                    <option value="humor">Humor</option>
-                    <option value="gyaan">Gyaan</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center gap-6 py-8 bg-neutral-800 rounded-xl">
-                {recordedAudio ? (
-                  <>
-                    <div className="w-full px-6">
-                      <audio 
-                        ref={audioRef}
-                        src={recordedAudio.url} 
-                        controls 
-                        className="w-full"
-                        style={{
-                          filter: 'invert(1) hue-rotate(180deg)',
-                        }}
-                      />
-                    </div>
-                    <div className="text-neutral-300 font-medium">
-                      Recording: {formatTime(recordingTime)}
-                    </div>
-                    <div className="flex gap-3">
-                      <button 
-                        onClick={deleteRecording}
-                        disabled={posting}
-                        className="bg-neutral-700 text-white px-5 py-2.5 rounded-lg hover:bg-neutral-600 transition-all font-medium text-sm disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                      <button 
-                        onClick={postVoiceDrop}
-                        disabled={posting}
-                        className="bg-white text-black px-6 py-2.5 rounded-lg hover:bg-neutral-200 transition-all font-medium text-sm disabled:opacity-50"
-                      >
-                        {posting ? 'Posting...' : 'Post Voice Drop'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${
-                      isRecording 
-                        ? 'bg-red-600 shadow-lg shadow-red-900/50 animate-pulse' 
-                        : 'bg-white'
-                    }`}>
-                      <button
-                        onClick={toggleRecording}
-                        className="w-full h-full rounded-full flex items-center justify-center hover:scale-95 transition-transform"
-                      >
-                        {isRecording ? (
-                          <StopCircle className="w-8 h-8 text-white" />
-                        ) : (
-                          <Mic className="w-8 h-8 text-black" />
-                        )}
-                      </button>
-                    </div>
-                    
-                    {isRecording && (
-                      <div className="text-xl font-medium text-white tabular-nums">
-                        {formatTime(recordingTime)}
-                      </div>
-                    )}
-
-                    <div className="text-center">
-                      <div className="text-neutral-200 mb-1 font-medium">
-                        {isRecording ? 'Recording... Tap to stop' : 'Tap to start recording'}
-                      </div>
-                      <div className="text-sm text-neutral-400">
-                        Max duration: 5 minutes
-                      </div>
-                    </div>
-                  </>
-                )}
+            <div className="mt-6">
+              <input
+                type="text"
+                value={newPostTitle}
+                onChange={(e) => setNewPostTitle(e.target.value)}
+                placeholder="Title for your voice drop"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+              />
+              <div className="mt-3 flex gap-2">
+                <select
+                  value={newPostCategory}
+                  onChange={(e) => setNewPostCategory(e.target.value)}
+                  className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white"
+                >
+                  <option value="">Select category</option>
+                  {categories.filter(c => c.id !== 'all').map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <button onClick={postVoiceDrop} disabled={posting} className="bg-white text-black px-4 py-2 rounded-lg">
+                  {posting ? 'Posting...' : 'Post'}
+                </button>
               </div>
             </div>
           </div>
         )}
       </div>
-
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </div>
   );
 };
