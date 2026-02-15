@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut } from 'lucide-react';
 import io from 'socket.io-client';
 
-const API_URL = 'http://localhost:5000/api';
-const SOCKET_URL = 'http://localhost:5000';
+const API_URL = 'voicedrop-app-production.up.railway.app/api';
+const SOCKET_URL = 'voicedrop-app-production.up.railway.app';
 
 const VoiceDropApp = () => {
   const [isRecording, setIsRecording] = useState(false);
