@@ -1,70 +1,93 @@
-# Getting Started with Create React App
+🎙️ VoiceDrop
+Anonymous voice-first social media platform - Express yourself through voice, not text.
+✨ What is VoiceDrop?
+VoiceDrop is a modern social platform where users share thoughts, stories, and ideas through voice recordings instead of text posts. Stay anonymous, build your voice identity, and connect with others through authentic audio content.
+Perfect for philosophers, storytellers, comedians, speakers, and anyone who wants to be heard.
+🚀 Features
+Core Functionality
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+🎤 Voice Recording - Record up to 5 minutes of audio directly in-browser
+🔒 Anonymous Identity - Real accounts, anonymous usernames
+📱 Real-time Updates - Live feed with WebSocket integration
+🎵 Audio Playback - Seamless in-app audio player with waveform visualization
 
-## Available Scripts
+Social Features
 
-In the project directory, you can run:
+❤️ Like & Unlike - Show appreciation for great voice drops
+💬 Comments - Engage with posts through text replies
+🔖 Bookmarks - Save your favorite drops for later
+👥 Live Activity - See who's online and recording in real-time
+📊 User Profiles - Track your posts and engagement stats
 
-### `npm start`
+Categories
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+🎯 TED Talks - Inspirational speeches
+🤔 Philosophy - Deep thoughts and discussions
+😂 Humor - Comedy and funny stories
+💡 Gyaan - Knowledge sharing and life lessons
+✨ For You - Personalized feed
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+🛠️ Tech Stack
+Frontend
 
-### `npm test`
+React - UI framework
+Tailwind CSS - Styling
+Socket.IO Client - Real-time communication
+Web Audio API - Audio recording
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Backend
 
-### `npm run build`
+Node.js + Express - Server
+MongoDB - Database
+Socket.IO - WebSocket server
+JWT - Authentication
+Bcrypt - Password hashing
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Cloud Services
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+AWS S3 - Audio file storage
+MongoDB Atlas - Cloud database
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+🎯 Key Highlights
+✅ Full-stack application with authentication
+✅ Real-time features (live likes, comments, online users)
+✅ Cloud storage integration (AWS S3)
+✅ Secure JWT-based auth system
+✅ Modern dark mode UI
+✅ Mobile-responsive design
+📸 Screenshots
+[Add screenshots here]
+🚦 Getting Started
+bash# Clone the repository
+git clone https://github.com/yourusername/voicedrop.git
 
-### `npm run eject`
+# Install backend dependencies
+cd voicedrop-backend
+npm install
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# Install frontend dependencies
+cd ../voicedrop-app
+npm install
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# Set up environment variables (see .env.example)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+# Run backend
+cd voicedrop-backend
+npm start
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+# Run frontend (in new terminal)
+cd voicedrop-app
+npm start
+🔐 Environment Variables
+Create .env files in both frontend and backend directories (see .env.example).
+🎨 Design Philosophy
+VoiceDrop focuses on authentic voice expression with a clean, minimal interface that puts content first. The anonymous system encourages honest, vulnerable sharing while maintaining user privacy.
+🤝 Contributing
+Contributions welcome! Feel free to open issues or submit PRs.
+📄 License
+MIT License
+👨‍💻 Built By
+Maryala Sharanya
 
-## Learn More
+⭐ Star this repo if you like the project!
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
