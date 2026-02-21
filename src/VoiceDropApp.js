@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut } from 'lucide-react';
 import io from 'socket.io-client';
+import DeletePostButton from './components/DeletePostButton';
 
-const API_URL = 'voicedrop-app-production.up.railway.app/api';
-const SOCKET_URL = 'voicedrop-app-production.up.railway.app';
+const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
+const SOCKET_URL = 'https://voicedrop-backend-99zl.onrender.com';
 
 const VoiceDropApp = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -34,7 +35,6 @@ const VoiceDropApp = () => {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
-  //eslint-disable-next-line
   const audioRef = useRef(null);
   const audioPlayerRefs = useRef({});
 
@@ -86,6 +86,12 @@ const VoiceDropApp = () => {
       );
     });
 
+    // Listen for post deletions
+    newSocket.on('postDeleted', ({ postId }) => {
+      console.log('🗑️ Post deleted:', postId);
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+    });
+
     return () => {
       newSocket.close();
     };
@@ -115,7 +121,6 @@ const VoiceDropApp = () => {
         setCurrentUser(userData);
         console.log('👤 Logged in as:', userData.username);
       } else {
-        // Token invalid, clear it
         console.log('❌ Invalid token, logging out');
         localStorage.removeItem('voicedrop_token');
         setAuthToken(null);
@@ -123,7 +128,6 @@ const VoiceDropApp = () => {
       }
     } catch (error) {
       console.error('Error getting current user:', error);
-      // On network error, also clear token
       localStorage.removeItem('voicedrop_token');
       setAuthToken(null);
       setCurrentUser(null);
@@ -145,7 +149,6 @@ const VoiceDropApp = () => {
       setPosts(data);
     } catch (error) {
       console.error('Error fetching posts:', error);
-      // Set empty array on error to prevent UI issues
       setPosts([]);
     } finally {
       setLoading(false);
@@ -449,6 +452,12 @@ const VoiceDropApp = () => {
     }
   };
 
+  // Handle delete success callback
+  const handleDeleteSuccess = (deletedPostId) => {
+    setPosts(prevPosts => prevPosts.filter(post => post.id !== deletedPostId));
+    console.log('✅ Post deleted successfully:', deletedPostId);
+  };
+
   const filteredPosts = selectedCategory === 'all' 
     ? posts 
     : posts.filter(post => post.category === selectedCategory);
@@ -714,8 +723,16 @@ const VoiceDropApp = () => {
               {filteredPosts.map(post => (
                 <div 
                   key={post.id}
-                  className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all"
+                  className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
                 >
+                  {/* DELETE BUTTON - Only shows on user's own posts */}
+                  <DeletePostButton
+                    postId={post.id}
+                    currentUsername={currentUser?.username}
+                    postUsername={post.username}
+                    onDeleteSuccess={handleDeleteSuccess}
+                  />
+
                   <div className="flex items-start gap-4">
                     <div className="w-11 h-11 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0">
                       <span className="text-lg">🎭</span>
