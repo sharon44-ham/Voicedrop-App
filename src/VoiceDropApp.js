@@ -459,6 +459,39 @@ const VoiceDropApp = () => {
     console.log('✅ Post deleted successfully:', deletedPostId);
   };
 
+  // Delete a post (inline handler to ensure the button works and is rendered)
+  const handleDelete = async (postId) => {
+    if (!authToken) {
+      alert('Please login to delete posts');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const response = await fetch(`${API_URL}/posts/${postId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (response.ok) {
+        // Remove locally and notify server via socket
+        handleDeleteSuccess(postId);
+        if (socket) {
+          socket.emit('deletePost', { postId });
+        }
+      } else {
+        const data = await response.json().catch(() => ({}));
+        alert(data.error || 'Failed to delete post');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert('Failed to delete post. Please try again.');
+    }
+  };
+
   const filteredPosts = selectedCategory === 'all' 
     ? posts 
     : posts.filter(post => post.category === selectedCategory);
@@ -695,14 +728,12 @@ const VoiceDropApp = () => {
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all text-sm ${
-                      selectedCategory === cat.id
-                        ? 'bg-white text-black'
-                        : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700'
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      selectedCategory === cat.id ? 'bg-white text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
-                    {cat.name}
+                    <span>{cat.name}</span>
                   </button>
                 );
               })}
