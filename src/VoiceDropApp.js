@@ -35,6 +35,7 @@ const VoiceDropApp = () => {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
+  //eslint-disable-next-line
   const audioRef = useRef(null);
   const audioPlayerRefs = useRef({});
 
