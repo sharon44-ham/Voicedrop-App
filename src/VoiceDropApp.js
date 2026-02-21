@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut } from 'lucide-react';
 import io from 'socket.io-client';
-import DeletePostButton from './components/DeleteButtonTest';
+import DeletePostButton from './components/DeletePostButton';
 
 const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
 const SOCKET_URL = 'https://voicedrop-backend-99zl.onrender.com';
