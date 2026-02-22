@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut } from 'lucide-react';
 import io from 'socket.io-client';
-import DeletePostButton from './components/DeletePostButton';
 
 const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
 const SOCKET_URL = 'https://voicedrop-backend-99zl.onrender.com';
@@ -460,6 +459,7 @@ const VoiceDropApp = () => {
   };
 
   // Delete a post (inline handler to ensure the button works and is rendered)
+  //eslint-disable-next-line
   const handleDelete = async (postId) => {
     if (!authToken) {
       alert('Please login to delete posts');
@@ -757,13 +757,62 @@ const VoiceDropApp = () => {
                   key={post.id}
                   className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
                 >
-                  {/* DELETE BUTTON - Only shows on user's own posts */}
-                  <DeletePostButton
-                    postId={post.id}
-                    currentUsername={currentUser?.username}
-                    postUsername={post.username}
-                    onDeleteSuccess={handleDeleteSuccess}
-                  />
+      {/* DELETE BUTTON - INLINE VERSION */}
+      {currentUser?.username === post.username && (
+        <button
+          onClick={async () => {
+            if (!window.confirm('Delete this post? This cannot be undone.')) return;
+            
+            try {
+              const token = localStorage.getItem('voicedrop_token');
+              const response = await fetch(`${API_URL}/posts/${post.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+
+              if (response.ok) {
+                setPosts(prev => prev.filter(p => p.id !== post.id));
+                alert('Post deleted! ✅');
+              } else {
+                const error = await response.json();
+                alert('Failed to delete: ' + (error.error || 'Unknown error'));
+              }
+            } catch (error) {
+              console.error('Delete error:', error);
+              alert('Error: ' + error.message);
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            zIndex: 100,
+            background: '#ff3b30',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#e62e24';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#ff3b30';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          title="Delete post"
+        >
+          ×
+        </button>
+      )}             
 
                   <div className="flex items-start gap-4">
                     <div className="w-11 h-11 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0">
