@@ -751,8 +751,11 @@ const VoiceDropApp = () => {
               </div>
             )}
 
-            <div className="space-y-3">
-              {filteredPosts.map(post => (
+<div className="space-y-3">
+  <div style={{background: 'yellow', padding: '50px', margin: '20px'}}>
+    <h1 style={{color: 'black', fontSize: '30px'}}>TESTING - YOU SHOULD SEE THIS</h1>
+  </div>              
+  {filteredPosts.map(post => (
                 <div 
                   key={post.id}
                   className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
