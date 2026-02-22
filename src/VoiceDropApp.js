@@ -758,8 +758,9 @@ const VoiceDropApp = () => {
                   className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
                 >
       {/* DELETE BUTTON - INLINE VERSION */}
-      {currentUser?.username === post.username && (
-<button
+      {true && (
+  <button
+
   onClick={async () => {
     console.log('Deleting:', post.id);
     if (!window.confirm('Delete?')) return;
