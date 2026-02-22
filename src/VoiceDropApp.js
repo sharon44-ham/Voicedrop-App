@@ -759,60 +759,41 @@ const VoiceDropApp = () => {
                 >
       {/* DELETE BUTTON - INLINE VERSION */}
       {currentUser?.username === post.username && (
-        <button
-          onClick={async () => {
-            if (!window.confirm('Delete this post? This cannot be undone.')) return;
-            
-            try {
-              const token = localStorage.getItem('voicedrop_token');
-              const response = await fetch(`${API_URL}/posts/${post.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
+<button
+  onClick={async () => {
+    console.log('Deleting:', post.id);
+    if (!window.confirm('Delete?')) return;
+    
+    try {
+      const token = localStorage.getItem('voicedrop_token');
+      const response = await fetch(`${API_URL}/posts/${post.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-              if (response.ok) {
-                setPosts(prev => prev.filter(p => p.id !== post.id));
-                alert('Post deleted! ✅');
-              } else {
-                const error = await response.json();
-                alert('Failed to delete: ' + (error.error || 'Unknown error'));
-              }
-            } catch (error) {
-              console.error('Delete error:', error);
-              alert('Error: ' + error.message);
-            }
-          }}
-          style={{
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            zIndex: 100,
-            background: '#ff3b30',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            cursor: 'pointer',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#e62e24';
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#ff3b30';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          title="Delete post"
-        >
-          ×
-        </button>
-      )}             
+      if (response.ok) {
+        setPosts(prev => prev.filter(p => p.id !== post.id));
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }}
+  style={{
+    position: 'absolute',
+    top: '12px',
+    right: '12px',
+    zIndex: 999,
+    background: 'lime',
+    color: 'black',
+    border: '2px solid red',
+    padding: '10px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  }}
+>
+  DEL
+</button>
+      )}
 
                   <div className="flex items-start gap-4">
                     <div className="w-11 h-11 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0">
