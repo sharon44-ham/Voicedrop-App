@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut } from 'lucide-react';
+import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut, Trash2} from 'lucide-react';
 import io from 'socket.io-client';
 
 const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
@@ -325,6 +325,33 @@ const VoiceDropApp = () => {
       console.error('Error liking post:', error);
     }
   };
+  const handleDelete = async (id) => {
+  if (!authToken) {
+    alert('Please login to delete posts');
+    return;
+  }
+
+  if (!window.confirm('Delete this post? This cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/posts/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      setPosts(posts.filter(post => post.id !== id));
+      alert('Post deleted! ✅');
+    }
+  } catch (error) {
+    console.error('Error deleting post:', error);
+  }
+};
 
   const handleSave = async (id) => {
     if (!authToken) {
@@ -452,46 +479,8 @@ const VoiceDropApp = () => {
     }
   };
 
-  // Handle delete success callback
-  const handleDeleteSuccess = (deletedPostId) => {
-    setPosts(prevPosts => prevPosts.filter(post => post.id !== deletedPostId));
-    console.log('✅ Post deleted successfully:', deletedPostId);
-  };
-
-  // Delete a post (inline handler to ensure the button works and is rendered)
-  //eslint-disable-next-line
-  const handleDelete = async (postId) => {
-    if (!authToken) {
-      alert('Please login to delete posts');
-      return;
-    }
-
-    if (!window.confirm('Are you sure you want to delete this post?')) return;
-
-    try {
-      const response = await fetch(`${API_URL}/posts/${postId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-
-      if (response.ok) {
-        // Remove locally and notify server via socket
-        handleDeleteSuccess(postId);
-        if (socket) {
-          socket.emit('deletePost', { postId });
-        }
-      } else {
-        const data = await response.json().catch(() => ({}));
-        alert(data.error || 'Failed to delete post');
-      }
-    } catch (error) {
-      console.error('Error deleting post:', error);
-      alert('Failed to delete post. Please try again.');
-    }
-  };
-
+  
+  
   const filteredPosts = selectedCategory === 'all' 
     ? posts 
     : posts.filter(post => post.category === selectedCategory);
@@ -751,53 +740,13 @@ const VoiceDropApp = () => {
               </div>
             )}
 
-<div className="space-y-3">
-  <div style={{background: 'yellow', padding: '50px', margin: '20px'}}>
-    <h1 style={{color: 'black', fontSize: '30px'}}>TESTING - YOU SHOULD SEE THIS</h1>
-  </div>              
+             <div className="space-y-3">
   {filteredPosts.map(post => (
                 <div 
                   key={post.id}
                   className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
                 >
-      {/* DELETE BUTTON - INLINE VERSION */}
-      {true && (
-  <button
-
-  onClick={async () => {
-    console.log('Deleting:', post.id);
-    if (!window.confirm('Delete?')) return;
     
-    try {
-      const token = localStorage.getItem('voicedrop_token');
-      const response = await fetch(`${API_URL}/posts/${post.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        setPosts(prev => prev.filter(p => p.id !== post.id));
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  }}
-  style={{
-    position: 'absolute',
-    top: '12px',
-    right: '12px',
-    zIndex: 999,
-    background: 'lime',
-    color: 'black',
-    border: '2px solid red',
-    padding: '10px',
-    cursor: 'pointer',
-    fontWeight: 'bold'
-  }}
->
-  DEL
-</button>
-      )}
 
                   <div className="flex items-start gap-4">
                     <div className="w-11 h-11 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0">
@@ -864,13 +813,23 @@ const VoiceDropApp = () => {
                               ? 'text-yellow-400'
                               : 'text-neutral-400 hover:text-white'
                           }`}
+                          
                         >
                           <Bookmark className={`w-4 h-4 ${currentUser?.savedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
                         </button>
                         <button className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
                           <Share2 className="w-4 h-4" />
                         </button>
-                      </div>
+                      {currentUser?.username === post.username && (
+    <button 
+      onClick={() => handleDelete(post.id)}
+      className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
+      title="Delete post"
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
+  )}
+</div>
 
                       {expandedComments.has(post.id) && (
                         <div className="mt-4 pt-4 border-t border-neutral-700">
