@@ -825,7 +825,7 @@ const VoiceDropApp = () => {
   postUser: post.username,
   shouldShow: currentUser?.username === post.username
 })}
-{currentUser?.username === post.username && (
+{true && (
   <button 
     onClick={() => handleDelete(post.id)}
     className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
