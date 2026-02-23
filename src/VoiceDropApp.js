@@ -820,7 +820,20 @@ const VoiceDropApp = () => {
                         <button className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
                           <Share2 className="w-4 h-4" />
                         </button>
-                      {currentUser?.username === post.username && (
+    {console.log('🔍 Debug:', {
+  currentUser: currentUser,
+  postUser: post.username,
+  shouldShow: currentUser?.username === post.username
+})}
+{currentUser?.username === post.username && (
+  <button 
+    onClick={() => handleDelete(post.id)}
+    className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
+    title="Delete post"
+  >
+    <Trash2 className="w-4 h-4" />
+  </button>
+)}                  {currentUser?.username === post.username && (
     <button 
       onClick={() => handleDelete(post.id)}
       className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
