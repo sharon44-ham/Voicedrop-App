@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut } from 'lucide-react';
+import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut, Trash2 } from 'lucide-react';
 import io from 'socket.io-client';
-
 const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
 const SOCKET_URL = 'https://voicedrop-backend-99zl.onrender.com';
 
@@ -317,6 +316,7 @@ const VoiceDropApp = () => {
       console.error('Error liking post:', error);
     }
   };
+  
 
   const handleSave = async (id) => {
     if (!authToken) {
@@ -346,7 +346,33 @@ const VoiceDropApp = () => {
       console.error('Error saving post:', error);
     }
   };
+const handleDelete = async (id) => {
+    if (!authToken) {
+      alert('Please login to delete posts');
+      return;
+    }
 
+    if (!window.confirm('Delete this post? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/posts/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        setPosts(posts.filter(post => post.id !== id));
+        alert('Post deleted! ✅');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
+  };
   const fetchSavedPosts = async () => {
     if (!authToken) return;
 
@@ -817,6 +843,16 @@ const VoiceDropApp = () => {
                         <button className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
                           <Share2 className="w-4 h-4" />
                         </button>
+                        
+                        {currentUser?.username === post.username && (
+                          <button 
+                            onClick={() => handleDelete(post.id)}
+                            className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
+                            title="Delete post"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
 
                       {expandedComments.has(post.id) && (
