@@ -793,12 +793,12 @@ const VoiceDropApp = () => {
 
                       <div className="flex items-center gap-6 text-sm">
                         <button
-                          onClick={() => handleLike(post.id)}
-                          className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
-                        >
-                          <Heart className="w-4 h-4" />
-                          <span className="text-xs font-medium">{post.likes?.toLocaleString() || 0}</span>
-                        </button>
+  onClick={() => handleLike(post.id)}
+  className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
+>
+  <Heart className="w-4 h-4" />
+  <span className="text-xs font-medium" style={{color: 'lime', fontSize: '30px'}}>TEST {post.likes?.toLocaleString() || 0}</span>
+</button>
                         <button 
                           onClick={() => toggleComments(post.id)}
                           className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
@@ -820,18 +820,23 @@ const VoiceDropApp = () => {
                         <button className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
                           <Share2 className="w-4 h-4" />
                         </button>
-    {console.log('🔍 Debug:', {
-  currentUser: currentUser,
-  postUser: post.username,
-  shouldShow: currentUser?.username === post.username
-})}
-  <button className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
-  <Share2 className="w-4 h-4" />
-</button>
-
-<span style={{color: 'red', fontSize: '20px'}}>DELETE TEST</span>
-
-</div>
+{true && (
+  <button 
+    onClick={() => handleDelete(post.id)}
+    className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
+    title="Delete post"
+  >
+    <Trash2 className="w-4 h-4" />
+  </button>
+)}                  {currentUser?.username === post.username && (
+    <button 
+      onClick={() => handleDelete(post.id)}
+      className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
+      title="Delete post"
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
+  )}
 </div>
 
                       {expandedComments.has(post.id) && (
