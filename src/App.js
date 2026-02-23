@@ -795,7 +795,7 @@ const handleDelete = async (id) => {
 </button>
             </div>
           </div>
-          {/* Edit Profile Modal */}
+        )}
 {showEditProfile && (
   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEditProfile(false)}>
     <div className="bg-neutral-900 rounded-2xl p-6 max-w-md w-full border border-neutral-800" onClick={(e) => e.stopPropagation()}>
