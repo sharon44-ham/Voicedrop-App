@@ -30,6 +30,11 @@ const VoiceDropApp = () => {
   const [authError, setAuthError] = useState('');
   //eslint-disable-next-line
   const [savedPosts, setSavedPosts] = useState([]);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+const [editForm, setEditForm] = useState({ username: '', bio: '', avatar: '' });
+const [viewingUser, setViewingUser] = useState(null);
+const [viewingUserPosts, setViewingUserPosts] = useState([]);
+const [loadingUserProfile, setLoadingUserProfile] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -175,12 +180,61 @@ const VoiceDropApp = () => {
     setCurrentUser(null);
     setPosts([]);
   };
+const handleUpdateProfile = async (e) => {
+  e.preventDefault();
 
-  useEffect(() => {
-    if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          if (prev >= 300) {
+  try {
+    const response = await fetch(`${API_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(editForm)
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      setCurrentUser(data.user);
+      setShowEditProfile(false);
+      alert('Profile updated! ✅');
+      fetchPosts();
+    } else {
+      alert(data.error || 'Failed to update profile');
+    }
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    alert('Failed to update profile');
+  }
+};
+
+const fetchUserProfile = async (username) => {
+  try {
+    setLoadingUserProfile(true);
+    const response = await fetch(`${API_URL}/users/${username}`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      setViewingUser(data.user);
+      setViewingUserPosts(data.posts);
+    } else {
+      alert('User not found');
+      setViewingUser(null);
+    }
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    alert('Failed to load user profile');
+  } finally {
+    setLoadingUserProfile(false);
+  }
+};
+
+useEffect(() => {
+  if (isRecording) {
+    timerRef.current = setInterval(() => {
+      setRecordingTime(prev => {
+        if (prev >= 300) {
             if (mediaRecorderRef.current) {
               mediaRecorderRef.current.stop();
               setIsRecording(false);
@@ -718,15 +772,198 @@ const handleDelete = async (id) => {
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowProfile(false)}
-                className="w-full bg-white text-black py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors"
-              >
-                Close
-              </button>
+             <button
+  onClick={() => {
+    setEditForm({
+      username: currentUser.username,
+      bio: currentUser.bio || '',
+      avatar: currentUser.avatar || '🎭'
+    });
+    setShowProfile(false);
+    setShowEditProfile(true);
+  }}
+  className="w-full bg-neutral-800 text-white py-2 rounded-lg font-medium hover:bg-neutral-700 transition-colors mb-2"
+>
+  Edit Profile
+</button>
+
+<button
+  onClick={() => setShowProfile(false)}
+  className="w-full bg-white text-black py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors"
+>
+  Close
+</button>
             </div>
           </div>
+          {/* Edit Profile Modal */}
+{showEditProfile && (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEditProfile(false)}>
+    <div className="bg-neutral-900 rounded-2xl p-6 max-w-md w-full border border-neutral-800" onClick={(e) => e.stopPropagation()}>
+      <h2 className="text-2xl font-semibold text-white mb-6">Edit Profile</h2>
+      
+      <form onSubmit={handleUpdateProfile}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-neutral-300 mb-2">Avatar (Emoji)</label>
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center text-3xl">
+              {editForm.avatar}
+            </div>
+            <input
+              type="text"
+              value={editForm.avatar}
+              onChange={(e) => setEditForm({ ...editForm, avatar: e.target.value })}
+              placeholder="🎭"
+              maxLength={2}
+              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white text-white placeholder:text-neutral-500"
+            />
+          </div>
+          <p className="text-xs text-neutral-500 mt-1">Choose any emoji</p>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-neutral-300 mb-2">Username</label>
+          <input
+            type="text"
+            value={editForm.username}
+            onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+            placeholder="Your username"
+            required
+            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white text-white placeholder:text-neutral-500"
+          />
+          <p className="text-xs text-neutral-500 mt-1">This will update across all your posts</p>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-neutral-300 mb-2">Bio</label>
+          <textarea
+            value={editForm.bio}
+            onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+            placeholder="Tell us about yourself..."
+            maxLength={150}
+            rows={3}
+            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white text-white placeholder:text-neutral-500 resize-none"
+          />
+          <p className="text-xs text-neutral-500 mt-1">{editForm.bio.length}/150 characters</p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setShowEditProfile(false)}
+            className="flex-1 bg-neutral-800 text-white py-2 rounded-lg font-medium hover:bg-neutral-700 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 bg-white text-black py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors"
+          >
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
+{/* User Profile Modal */}
+{viewingUser && (
+  <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="bg-neutral-900 rounded-2xl max-w-2xl w-full border border-neutral-800 my-8">
+      <div className="p-6 border-b border-neutral-800">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center text-4xl">
+              {viewingUser.avatar}
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold text-white">{viewingUser.username}</h2>
+              <p className="text-sm text-neutral-400 mt-1">{viewingUser.bio}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setViewingUser(null);
+              setViewingUserPosts([]);
+            }}
+            className="text-neutral-400 hover:text-white transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-neutral-800 rounded-lg p-3">
+            <div className="text-xl font-bold text-white">{viewingUser.totalPosts}</div>
+            <div className="text-xs text-neutral-400">Posts</div>
+          </div>
+          <div className="bg-neutral-800 rounded-lg p-3">
+            <div className="text-xl font-bold text-white">{viewingUser.totalLikes}</div>
+            <div className="text-xs text-neutral-400">Total Likes</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Posts by {viewingUser.username}
+        </h3>
+        
+        {loadingUserProfile ? (
+          <div className="text-center py-8 text-neutral-400">Loading posts...</div>
+        ) : viewingUserPosts.length === 0 ? (
+          <div className="text-center py-8 text-neutral-400">No posts yet</div>
+        ) : (
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {viewingUserPosts.map(post => (
+              <div key={post.id} className="bg-neutral-800 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-white">{post.title}</h4>
+                  <span className="text-xs bg-neutral-700 text-neutral-300 px-2 py-1 rounded-full">
+                    {post.category}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-3 mb-3">
+                  <button
+                    onClick={() => togglePlay(post.id, post.audioUrl)}
+                    className="w-8 h-8 bg-white rounded-full flex items-center justify-center"
+                  >
+                    {playingId === post.id ? (
+                      <Pause className="w-3 h-3 text-black" />
+                    ) : (
+                      <Play className="w-3 h-3 text-black ml-0.5" />
+                    )}
+                  </button>
+                  
+                  <div className="flex-1 flex items-center gap-0.5 h-6">
+                    {post.waveform.map((height, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-full bg-neutral-600"
+                        style={{ height: `${height}%` }}
+                      />
+                    ))}
+                  </div>
+                  
+                  <span className="text-xs text-neutral-400">{post.duration}</span>
+                </div>
+                
+                <div className="flex items-center gap-4 text-xs text-neutral-400">
+                  <span>❤️ {post.likes}</span>
+                  <span>💬 {post.comments}</span>
+                  <span>{post.timestamp}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
+      </div>
+    </div>
+  </div>
+)}
 
         {activeTab === 'feed' && (
           <>
@@ -775,8 +1012,15 @@ const handleDelete = async (id) => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <div className="font-medium text-white text-sm">{post.username}</div>
-                          <div className="text-xs text-neutral-500">{post.timestamp}</div>
+<div 
+  className="font-medium text-white text-sm cursor-pointer hover:underline"
+  onClick={(e) => {
+    e.stopPropagation();
+    fetchUserProfile(post.username);
+  }}
+>
+  {post.username}
+</div>                          <div className="text-xs text-neutral-500">{post.timestamp}</div>
                         </div>
                         <span className="text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
                           {post.category}
