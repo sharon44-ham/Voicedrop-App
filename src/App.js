@@ -844,7 +844,7 @@ const handleDelete = async (id) => {
                           <Share2 className="w-4 h-4" />
                         </button>
                         
-                        {currentUser?.username === post.username && (
+                        {true && (
                           <button 
                             onClick={() => handleDelete(post.id)}
                             className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
