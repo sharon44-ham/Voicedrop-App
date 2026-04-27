@@ -161,8 +161,9 @@ const VoiceDropApp = () => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
-      setPosts(data.posts);
-      setHasMore(data.hasMore);
+      const postsList = Array.isArray(data) ? data : (data.posts || []);
+      setPosts(postsList);
+      setHasMore(data.hasMore || false);
     } catch (error) {
       console.error('Error fetching posts:', error);
       setPosts([]);
