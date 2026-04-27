@@ -31,7 +31,9 @@ const VoiceDropApp = () => {
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ email: '', password: '', username: '' });
   const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(!!localStorage.getItem('voicedrop_token'));
+  const [serverWaking, setServerWaking] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -118,23 +120,27 @@ const VoiceDropApp = () => {
 
   const getCurrentUser = async () => {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => setServerWaking(true), 3000);
+
       const response = await fetch(`${API_URL}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        signal: controller.signal
       });
+
+      clearTimeout(timeout);
+      setServerWaking(false);
 
       if (response.ok) {
         const userData = await response.json();
         setCurrentUser(userData);
-        console.log('👤 Logged in as:', userData.username);
       } else {
-        console.log('❌ Invalid token, logging out');
         localStorage.removeItem('voicedrop_token');
         setAuthToken(null);
         setCurrentUser(null);
       }
     } catch (error) {
+      setServerWaking(false);
       console.error('Error getting current user:', error);
       localStorage.removeItem('voicedrop_token');
       setAuthToken(null);
@@ -188,18 +194,17 @@ const VoiceDropApp = () => {
   const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthLoading(true);
 
     try {
       const endpoint = authMode === 'login' ? '/auth/login' : '/auth/signup';
-      const body = authMode === 'login' 
+      const body = authMode === 'login'
         ? { email: authForm.email, password: authForm.password }
         : { email: authForm.email, password: authForm.password, username: authForm.username };
 
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
@@ -215,7 +220,9 @@ const VoiceDropApp = () => {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      setAuthError('Something went wrong. Please try again.');
+      setAuthError('Could not reach the server. Please try again in a moment.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -520,7 +527,14 @@ const VoiceDropApp = () => {
           <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
             <Mic className="w-10 h-10 text-black" />
           </div>
-          <p className="text-neutral-400">Loading...</p>
+          {serverWaking ? (
+            <>
+              <p className="text-white font-medium mb-1">Waking up the server...</p>
+              <p className="text-neutral-500 text-sm">Free tier goes to sleep — give it 30 seconds</p>
+            </>
+          ) : (
+            <p className="text-neutral-400">Loading...</p>
+          )}
         </div>
       </div>
     );
@@ -610,9 +624,13 @@ const VoiceDropApp = () => {
 
               <button
                 type="submit"
-                className="w-full bg-white text-black py-3 rounded-lg font-medium hover:bg-neutral-200 transition-colors"
+                disabled={authLoading}
+                className="w-full bg-white text-black py-3 rounded-lg font-medium hover:bg-neutral-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {authMode === 'login' ? 'Login' : 'Create Account'}
+                {authLoading
+                  ? (authMode === 'login' ? 'Logging in...' : 'Creating account...')
+                  : (authMode === 'login' ? 'Login' : 'Create Account')
+                }
               </button>
             </form>
           </div>
