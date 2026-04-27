@@ -15,6 +15,8 @@ const VoiceDropApp = () => {
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostCategory, setNewPostCategory] = useState('');
   const [posts, setPosts] = useState([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(0);
@@ -101,12 +103,18 @@ const VoiceDropApp = () => {
   useEffect(() => {
     if (authToken) {
       getCurrentUser();
-      fetchPosts();
+      fetchPosts(selectedCategory);
     } else {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
+
+  // Re-fetch when category changes
+  useEffect(() => {
+    if (authToken) fetchPosts(selectedCategory);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory]);
 
   const getCurrentUser = async () => {
     try {
@@ -136,22 +144,44 @@ const VoiceDropApp = () => {
     }
   };
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (category = 'all', cursor = null) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/posts`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      const params = new URLSearchParams();
+      if (category !== 'all') params.set('category', category);
+      if (cursor) params.set('cursor', cursor);
+
+      const response = await fetch(`${API_URL}/posts?${params}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
       const data = await response.json();
-      setPosts(data);
+      setPosts(data.posts);
+      setHasMore(data.hasMore);
     } catch (error) {
       console.error('Error fetching posts:', error);
       setPosts([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMorePosts = async () => {
+    if (!hasMore || loadingMore || posts.length === 0) return;
+    try {
+      setLoadingMore(true);
+      const lastPost = posts[posts.length - 1];
+      const params = new URLSearchParams();
+      if (selectedCategory !== 'all') params.set('category', selectedCategory);
+      params.set('cursor', lastPost.createdAt);
+
+      const response = await fetch(`${API_URL}/posts?${params}`);
+      const data = await response.json();
+      setPosts(prev => [...prev, ...data.posts]);
+      setHasMore(data.hasMore);
+    } catch (error) {
+      console.error('Error loading more posts:', error);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -481,9 +511,6 @@ const VoiceDropApp = () => {
 
   
   
-  const filteredPosts = selectedCategory === 'all' 
-    ? posts 
-    : posts.filter(post => post.category === selectedCategory);
 
   // Show loading screen while checking auth
   if (isCheckingAuth) {
@@ -716,7 +743,7 @@ const VoiceDropApp = () => {
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
+                    onClick={() => { setSelectedCategory(cat.id); setPosts([]); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                       selectedCategory === cat.id ? 'bg-white text-black' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
@@ -734,14 +761,14 @@ const VoiceDropApp = () => {
               </div>
             )}
 
-            {!loading && filteredPosts.length === 0 && (
+            {!loading && posts.length === 0 && (
               <div className="text-center py-12 text-neutral-400">
                 No posts yet. Be the first to drop your voice! 🎤
               </div>
             )}
 
-             <div className="space-y-3">
-  {filteredPosts.map(post => (
+            <div className="space-y-3">
+              {posts.map(post => (
                 <div 
                   key={post.id}
                   className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
@@ -870,6 +897,18 @@ const VoiceDropApp = () => {
                 </div>
               ))}
             </div>
+
+            {hasMore && (
+              <div className="text-center mt-6">
+                <button
+                  onClick={loadMorePosts}
+                  disabled={loadingMore}
+                  className="bg-neutral-800 text-neutral-300 hover:bg-neutral-700 px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? 'Loading...' : 'Load more'}
+                </button>
+              </div>
+            )}
           </>
         )}
 
