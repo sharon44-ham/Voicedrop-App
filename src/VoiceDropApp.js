@@ -787,7 +787,7 @@ const VoiceDropApp = () => {
             )}
 
             <div className="space-y-3">
-              {posts.map(post => (
+              {(Array.isArray(posts) ? posts : []).map(post => (
                 <div 
                   key={post.id}
                   className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
