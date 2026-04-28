@@ -212,7 +212,7 @@ const VoiceDropApp = () => {
 
       const response = await fetch(`${API_URL}/posts?${params}`);
       const data = await response.json();
-      setPosts(prev => [...prev, ...data.posts]);
+      setPosts(prev => [...(Array.isArray(prev) ? prev : []), ...(data.posts || [])]);
       setHasMore(data.hasMore);
     } catch (error) {
       console.error('Error loading more posts:', error);
@@ -386,7 +386,7 @@ const VoiceDropApp = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setPosts(posts.map(post => post.id === id ? data : post));
+        setPosts(prev => (Array.isArray(prev) ? prev : []).map(post => post.id === id ? data : post));
       }
     } catch (error) {
       console.error('Error liking post:', error);
@@ -412,7 +412,7 @@ const VoiceDropApp = () => {
     });
     
     if (response.ok) {
-      setPosts(posts.filter(post => post.id !== id));
+      setPosts(prev => (Array.isArray(prev) ? prev : []).filter(post => post.id !== id));
       alert('Post deleted! ✅');
     }
   } catch (error) {
