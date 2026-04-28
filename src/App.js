@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut, Trash2 } from 'lucide-react';
 import io from 'socket.io-client';
 const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
@@ -13,7 +13,14 @@ const VoiceDropApp = () => {
   const [recordedAudio, setRecordedAudio] = useState(null);
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostCategory, setNewPostCategory] = useState('');
-  const [posts, setPosts] = useState([]);
+  const [posts, setPostsRaw] = useState([]);
+  const setPosts = useCallback((updater) => {
+    setPostsRaw(prev => {
+      const safePrev = Array.isArray(prev) ? prev : [];
+      const next = typeof updater === 'function' ? updater(safePrev) : updater;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(0);
@@ -69,24 +76,18 @@ const [loadingUserProfile, setLoadingUserProfile] = useState(false);
     });
 
     newSocket.on('likeUpdate', ({ postId, likes }) => {
-      console.log('💖 Like update received:', postId, likes);
-      setPosts(prevPosts => 
-        prevPosts.map(post => 
-          post.id === postId ? { ...post, likes } : post
-        )
+      setPosts(prevPosts =>
+        prevPosts.map(post => post.id === postId ? { ...post, likes } : post)
       );
     });
 
     newSocket.on('newComment', ({ postId, comment }) => {
-      console.log('💬 New comment received:', comment);
       setComments(prev => ({
         ...prev,
         [postId]: [comment, ...(prev[postId] || [])]
       }));
-      setPosts(prevPosts => 
-        prevPosts.map(post => 
-          post.id === postId ? { ...post, comments: post.comments + 1 } : post
-        )
+      setPosts(prevPosts =>
+        prevPosts.map(post => post.id === postId ? { ...post, comments: post.comments + 1 } : post)
       );
     });
 
@@ -115,14 +116,15 @@ const [loadingUserProfile, setLoadingUserProfile] = useState(false);
       if (response.ok) {
         const userData = await response.json();
         setCurrentUser(userData);
-        console.log('👤 Logged in as:', userData.username);
-      } else {
-        // Token invalid, clear it
+      } else if (response.status === 401) {
+        // Only clear token on explicit invalid token — not on server errors/restarts
         localStorage.removeItem('voicedrop_token');
         setAuthToken(null);
         setCurrentUser(null);
       }
+      // 503/500 = server temporarily down — keep token, user stays logged in
     } catch (error) {
+      // Network error (server restarting) — keep token, don't log out
       console.error('Error getting current user:', error);
     }
   };
@@ -131,8 +133,10 @@ const [loadingUserProfile, setLoadingUserProfile] = useState(false);
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/posts`);
+      if (!response.ok) return;
       const data = await response.json();
-      setPosts(data);
+      const list = Array.isArray(data) ? data : (data.posts || []);
+      setPosts(list);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -353,7 +357,7 @@ useEffect(() => {
       
       if (response.ok) {
         const data = await response.json();
-        setPosts(posts.map(post => post.id === id ? data : post));
+        setPosts(prev => prev.map(post => post.id === id ? data : post));
         
         // Update currentUser's likedPosts
         setCurrentUser(prev => {
@@ -420,7 +424,7 @@ const handleDelete = async (id) => {
       });
       
       if (response.ok) {
-        setPosts(posts.filter(post => post.id !== id));
+        setPosts(prev => prev.filter(post => post.id !== id));
         alert('Post deleted! ✅');
       }
     } catch (error) {
@@ -556,9 +560,10 @@ const handleDelete = async (id) => {
     }
   };
 
-  const filteredPosts = selectedCategory === 'all' 
-    ? posts 
-    : posts.filter(post => post.category === selectedCategory);
+  const safePosts = Array.isArray(posts) ? posts : [];
+  const filteredPosts = selectedCategory === 'all'
+    ? safePosts
+    : safePosts.filter(post => post.category === selectedCategory);
 
   // If not authenticated, show login/signup
   if (!authToken) {
@@ -1356,4 +1361,34 @@ className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 
   );
 };
 
-export default VoiceDropApp;
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { crashed: false };
+  }
+  static getDerivedStateFromError() {
+    return { crashed: true };
+  }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'sans-serif', gap: '16px' }}>
+          <div style={{ fontSize: '2rem' }}>🎤</div>
+          <div style={{ fontWeight: 600 }}>Something went wrong</div>
+          <button onClick={() => window.location.reload()} style={{ background: '#fff', color: '#000', border: 'none', borderRadius: '8px', padding: '10px 24px', cursor: 'pointer', fontWeight: 600 }}>
+            Reload app
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const App = () => (
+  <ErrorBoundary>
+    <VoiceDropApp />
+  </ErrorBoundary>
+);
+
+export default App;
