@@ -1134,4 +1134,39 @@ const VoiceDropApp = () => {
   );
 };
 
-export default VoiceDropApp;
+// Error Boundary — catches any render crash and shows a reload button
+// instead of a blank white page. React requires this to be a class component.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { crashed: false };
+  }
+  static getDerivedStateFromError() {
+    return { crashed: true };
+  }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'sans-serif', gap: '16px' }}>
+          <div style={{ fontSize: '2rem' }}>🎤</div>
+          <div style={{ fontWeight: 600 }}>Something went wrong</div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ background: '#fff', color: '#000', border: 'none', borderRadius: '8px', padding: '10px 24px', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Reload app
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const VoiceDropAppWithBoundary = () => (
+  <ErrorBoundary>
+    <VoiceDropApp />
+  </ErrorBoundary>
+);
+
+export default VoiceDropAppWithBoundary;
