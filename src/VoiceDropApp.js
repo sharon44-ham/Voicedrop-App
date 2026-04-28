@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut, Trash2} from 'lucide-react';
+import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut, Trash2, Search, X } from 'lucide-react';
 import io from 'socket.io-client';
 
 const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
@@ -34,6 +34,9 @@ const VoiceDropApp = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(!!localStorage.getItem('voicedrop_token'));
   const [serverWaking, setServerWaking] = useState(false);
+  const [sortMode, setSortMode] = useState('latest');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -112,11 +115,14 @@ const VoiceDropApp = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
 
-  // Re-fetch when category changes
+  // Re-fetch when category or sort mode changes
   useEffect(() => {
-    if (authToken) fetchPosts(selectedCategory);
+    if (authToken && !isSearching) {
+      setPosts([]);
+      fetchPosts(selectedCategory, null, sortMode);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory]);
+  }, [selectedCategory, sortMode]);
 
   const getCurrentUser = async () => {
     try {
@@ -150,12 +156,13 @@ const VoiceDropApp = () => {
     }
   };
 
-  const fetchPosts = async (category = 'all', cursor = null) => {
+  const fetchPosts = async (category = 'all', cursor = null, sort = 'latest') => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (category !== 'all') params.set('category', category);
       if (cursor) params.set('cursor', cursor);
+      if (sort !== 'latest') params.set('sort', sort);
 
       const response = await fetch(`${API_URL}/posts?${params}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -172,6 +179,25 @@ const VoiceDropApp = () => {
     }
   };
 
+  const searchPosts = async (query) => {
+    if (!query || query.trim().length < 2) {
+      fetchPosts(selectedCategory, null, sortMode);
+      return;
+    }
+    try {
+      setLoading(true);
+      setIsSearching(true);
+      const response = await fetch(`${API_URL}/posts/search?q=${encodeURIComponent(query.trim())}`);
+      const data = await response.json();
+      setPosts(data.posts || []);
+      setHasMore(false);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadMorePosts = async () => {
     if (!hasMore || loadingMore || posts.length === 0) return;
     try {
@@ -180,6 +206,7 @@ const VoiceDropApp = () => {
       const params = new URLSearchParams();
       if (selectedCategory !== 'all') params.set('category', selectedCategory);
       params.set('cursor', lastPost.createdAt);
+      if (sortMode !== 'latest') params.set('sort', sortMode);
 
       const response = await fetch(`${API_URL}/posts?${params}`);
       const data = await response.json();
@@ -756,6 +783,55 @@ const VoiceDropApp = () => {
 
         {activeTab === 'feed' && (
           <>
+            {/* Search bar */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search drops..."
+                value={searchQuery}
+                onChange={e => {
+                  const val = e.target.value;
+                  setSearchQuery(val);
+                  if (val.trim().length === 0) {
+                    setIsSearching(false);
+                    fetchPosts(selectedCategory, null, sortMode);
+                  }
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') searchPosts(searchQuery); }}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(''); setIsSearching(false); fetchPosts(selectedCategory, null, sortMode); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort toggle + category pills */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex gap-1 bg-neutral-900 rounded-lg p-1">
+                <button
+                  onClick={() => { setSortMode('latest'); setIsSearching(false); }}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${sortMode === 'latest' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  Latest
+                </button>
+                <button
+                  onClick={() => { setSortMode('top'); setIsSearching(false); }}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${sortMode === 'top' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  Top
+                </button>
+              </div>
+              {isSearching && (
+                <span className="text-xs text-neutral-400">Results for "{searchQuery}"</span>
+              )}
+            </div>
+
             <div className="flex gap-2 overflow-x-auto pb-5 mb-6 scrollbar-hide">
               {categories.map(cat => {
                 const Icon = cat.icon;
