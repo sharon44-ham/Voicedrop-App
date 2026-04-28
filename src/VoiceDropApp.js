@@ -72,22 +72,20 @@ const VoiceDropApp = () => {
     });
 
     newSocket.on('likeUpdate', ({ postId, likes }) => {
-      console.log('💖 Like update received:', postId, likes);
-      setPosts(prevPosts => 
-        prevPosts.map(post => 
+      setPosts(prevPosts =>
+        (Array.isArray(prevPosts) ? prevPosts : []).map(post =>
           post.id === postId ? { ...post, likes } : post
         )
       );
     });
 
     newSocket.on('newComment', ({ postId, comment }) => {
-      console.log('💬 New comment received:', comment);
       setComments(prev => ({
         ...prev,
         [postId]: [comment, ...(prev[postId] || [])]
       }));
-      setPosts(prevPosts => 
-        prevPosts.map(post => 
+      setPosts(prevPosts =>
+        (Array.isArray(prevPosts) ? prevPosts : []).map(post =>
           post.id === postId ? { ...post, comments: post.comments + 1 } : post
         )
       );
