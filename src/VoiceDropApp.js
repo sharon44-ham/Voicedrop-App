@@ -164,7 +164,9 @@ const VoiceDropApp = () => {
       if (cursor) params.set('cursor', cursor);
       if (sort !== 'latest') params.set('sort', sort);
 
-      const response = await fetch(`${API_URL}/posts?${params}`);
+      // Send token so server can personalize the feed based on engagement history
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+      const response = await fetch(`${API_URL}/posts?${params}`, { headers });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
