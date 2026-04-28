@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, Users, Radio, Bookmark, LogOut, Trash2, Search, X } from 'lucide-react';
 import io from 'socket.io-client';
 
@@ -14,7 +14,15 @@ const VoiceDropApp = () => {
   const [recordedAudio, setRecordedAudio] = useState(null);
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostCategory, setNewPostCategory] = useState('');
-  const [posts, setPosts] = useState([]);
+  const [posts, setPostsRaw] = useState([]);
+  // Wrapper that guarantees posts is ALWAYS an array no matter what any caller passes
+  const setPosts = useCallback((updater) => {
+    setPostsRaw(prev => {
+      const safePrev = Array.isArray(prev) ? prev : [];
+      const next = typeof updater === 'function' ? updater(safePrev) : updater;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
