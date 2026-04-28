@@ -91,9 +91,14 @@ const [loadingUserProfile, setLoadingUserProfile] = useState(false);
       );
     });
 
+    newSocket.on('postDeleted', ({ postId }) => {
+      setPosts(prevPosts => prevPosts.filter(post => String(post.id) !== String(postId)));
+    });
+
     return () => {
       newSocket.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Check authentication and fetch data
