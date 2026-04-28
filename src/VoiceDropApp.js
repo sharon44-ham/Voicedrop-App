@@ -146,17 +146,17 @@ const VoiceDropApp = () => {
       if (response.ok) {
         const userData = await response.json();
         setCurrentUser(userData);
-      } else {
+      } else if (response.status === 401) {
+        // Only clear token on explicit "invalid token" — not on server errors
         localStorage.removeItem('voicedrop_token');
         setAuthToken(null);
         setCurrentUser(null);
       }
+      // 500/503 = server temporarily down — keep the token, user stays logged in
     } catch (error) {
+      // Network error (server restarting) — keep token, don't log out
       setServerWaking(false);
       console.error('Error getting current user:', error);
-      localStorage.removeItem('voicedrop_token');
-      setAuthToken(null);
-      setCurrentUser(null);
     } finally {
       setIsCheckingAuth(false);
     }
