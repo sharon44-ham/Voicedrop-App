@@ -851,107 +851,153 @@ const VoiceDropApp = () => {
             </div>
 
             {loading && (
-              <div className="text-center py-12 text-neutral-400">
-                Loading posts...
+              <div className="space-y-3">
+                {[1,2,3].map(i => (
+                  <div key={i} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 animate-pulse">
+                    <div className="flex items-start gap-4">
+                      <div className="w-11 h-11 bg-neutral-800 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-3">
+                        <div className="flex justify-between">
+                          <div className="space-y-1.5">
+                            <div className="h-3 bg-neutral-800 rounded w-24" />
+                            <div className="h-2.5 bg-neutral-800 rounded w-16" />
+                          </div>
+                          <div className="h-6 bg-neutral-800 rounded-full w-16" />
+                        </div>
+                        <div className="h-4 bg-neutral-800 rounded w-3/4" />
+                        <div className="h-12 bg-neutral-800 rounded-xl" />
+                        <div className="flex gap-6">
+                          <div className="h-3 bg-neutral-800 rounded w-8" />
+                          <div className="h-3 bg-neutral-800 rounded w-8" />
+                          <div className="h-3 bg-neutral-800 rounded w-8" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
             {!loading && posts.length === 0 && (
-              <div className="text-center py-12 text-neutral-400">
-                No posts yet. Be the first to drop your voice! 🎤
+              <div className="text-center py-16 text-neutral-400">
+                <div className="text-4xl mb-3">🎤</div>
+                <div className="font-medium text-neutral-300 mb-1">
+                  {isSearching ? `No results for "${searchQuery}"` : 'No drops yet'}
+                </div>
+                <div className="text-sm">
+                  {isSearching ? 'Try a different search term' : 'Be the first to drop your voice'}
+                </div>
               </div>
             )}
 
             <div className="space-y-3">
               {(Array.isArray(posts) ? posts : []).map(post => (
-                <div 
+                <div
                   key={post.id}
-                  className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all relative"
+                  className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all"
                 >
-    
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg">🎭</span>
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className="w-10 h-10 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0 text-lg">
+                      {post.avatar || '🎭'}
                     </div>
+
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="font-medium text-white text-sm">{post.username}</div>
-                          <div className="text-xs text-neutral-500">{post.timestamp}</div>
+                      {/* Header row */}
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-white text-sm">{post.username}</span>
+                          <span className="text-neutral-600 text-xs">·</span>
+                          <span className="text-neutral-500 text-xs">{post.timestamp}</span>
                         </div>
-                        <span className="text-xs bg-neutral-800 text-neutral-300 px-2.5 py-1 rounded-full">
-                          {post.category}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {post.status === 'processing' && (
+                            <span className="text-xs bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-2 py-0.5 rounded-full">
+                              Processing…
+                            </span>
+                          )}
+                          <span className="text-xs bg-neutral-800 text-neutral-400 px-2.5 py-0.5 rounded-full capitalize">
+                            {post.category}
+                          </span>
+                        </div>
                       </div>
-                      
-                      <h3 className="text-base font-medium text-white mb-4 leading-snug">{post.title}</h3>
-                      
-                      <div className="flex items-center gap-3 mb-4 bg-neutral-800 rounded-xl p-3">
+
+                      {/* Title */}
+                      <h3 className="text-sm font-medium text-white mb-3 leading-snug">{post.title}</h3>
+
+                      {/* Audio player */}
+                      <div className="flex items-center gap-3 mb-3 bg-neutral-800/60 rounded-xl px-3 py-2.5">
                         <button
                           onClick={() => togglePlay(post.id, post.audioUrl)}
-                          disabled={!post.audioUrl}
-                          className="w-9 h-9 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!post.audioUrl || post.status === 'processing'}
+                          className="w-8 h-8 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          {playingId === post.id ? (
-                            <Pause className="w-4 h-4 text-black" />
-                          ) : (
-                            <Play className="w-4 h-4 text-black ml-0.5" />
-                          )}
+                          {playingId === post.id
+                            ? <Pause className="w-3.5 h-3.5 text-black" />
+                            : <Play className="w-3.5 h-3.5 text-black ml-0.5" />
+                          }
                         </button>
-                        <div className="flex-1 flex items-center gap-1 h-8">
+                        <div className="flex-1 flex items-end gap-px h-7">
                           {post.waveform?.map((height, i) => (
                             <div
                               key={i}
-                              className={`flex-1 rounded-full transition-all ${
-                                playingId === post.id ? 'bg-neutral-400' : 'bg-neutral-600'
+                              className={`flex-1 rounded-full transition-colors ${
+                                playingId === post.id ? 'bg-white' : 'bg-neutral-600'
                               }`}
                               style={{ height: `${height}%` }}
                             />
                           ))}
                         </div>
-                        <span className="text-xs text-neutral-400 font-medium tabular-nums">{post.duration}</span>
+                        <span className="text-xs text-neutral-400 tabular-nums">{post.duration}</span>
                       </div>
 
-                      <div className="flex items-center gap-6 text-sm">
+                      {/* Transcript placeholder — Whisper fills this in Phase 10 */}
+                      {post.transcript && (
+                        <p className="text-xs text-neutral-400 italic mb-3 leading-relaxed line-clamp-2">
+                          "{post.transcript}"
+                        </p>
+                      )}
+
+                      {/* Action bar */}
+                      <div className="flex items-center gap-5">
                         <button
                           onClick={() => handleLike(post.id)}
-                          className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
+                          className={`flex items-center gap-1.5 transition-colors ${
+                            currentUser?.likedPosts?.includes(post.id)
+                              ? 'text-red-400'
+                              : 'text-neutral-500 hover:text-white'
+                          }`}
                         >
-                          <Heart className="w-4 h-4" />
+                          <Heart className={`w-4 h-4 ${currentUser?.likedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
                           <span className="text-xs font-medium">{post.likes?.toLocaleString() || 0}</span>
                         </button>
-                        <button 
+                        <button
                           onClick={() => toggleComments(post.id)}
-                          className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
+                          className="flex items-center gap-1.5 text-neutral-500 hover:text-white transition-colors"
                         >
                           <MessageCircle className="w-4 h-4" />
                           <span className="text-xs font-medium">{post.comments || 0}</span>
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleSave(post.id)}
                           className={`flex items-center gap-1.5 transition-colors ${
-                            currentUser?.savedPosts?.includes(post.id)
-                              ? 'text-yellow-400'
-                              : 'text-neutral-400 hover:text-white'
+                            currentUser?.savedPosts?.includes(post.id) ? 'text-yellow-400' : 'text-neutral-500 hover:text-white'
                           }`}
-                          
                         >
                           <Bookmark className={`w-4 h-4 ${currentUser?.savedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
                         </button>
-                        <button className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
+                        <button className="flex items-center gap-1.5 text-neutral-500 hover:text-white transition-colors ml-auto">
                           <Share2 className="w-4 h-4" />
                         </button>
-                {currentUser?.username === post.username && (
-    <button 
-      onClick={() => handleDelete(post.id)}
-      className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
-      title="Delete post"
-    >
-      <Trash2 className="w-4 h-4" />
-    </button>
-  )}
-</div>
+                        {currentUser?.username === post.username && (
+                          <button
+                            onClick={() => handleDelete(post.id)}
+                            className="flex items-center gap-1.5 text-neutral-600 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
 
                       {expandedComments.has(post.id) && (
                         <div className="mt-4 pt-4 border-t border-neutral-700">
@@ -1009,52 +1055,69 @@ const VoiceDropApp = () => {
 
         {activeTab === 'record' && (
           <div className="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
-            <div className="flex items-center gap-4 mb-4">
+            <h2 className="text-base font-semibold text-white mb-5">New Voice Drop</h2>
+
+            {/* Record button */}
+            <div className="flex flex-col items-center gap-3 mb-6">
               <button
                 onClick={toggleRecording}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500' : 'bg-white'}`}
-                title="Record"
+                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                  isRecording
+                    ? 'bg-red-500 scale-110 shadow-red-500/30'
+                    : 'bg-white hover:bg-neutral-200'
+                }`}
               >
-                <Mic className={`w-6 h-6 ${isRecording ? 'text-white' : 'text-black'}`} />
+                <Mic className={`w-8 h-8 ${isRecording ? 'text-white' : 'text-black'}`} />
               </button>
-              <div>
-                <div className="text-sm text-neutral-400">Recording time</div>
-                <div className="font-medium text-white">{formatTime(recordingTime)}</div>
+              <div className="text-center">
+                <div className={`text-xl font-mono font-bold tabular-nums ${isRecording ? 'text-red-400' : 'text-white'}`}>
+                  {formatTime(recordingTime)}
+                </div>
+                <div className="text-xs text-neutral-500 mt-0.5">
+                  {isRecording ? 'Recording… tap to stop' : recordedAudio ? 'Recording ready' : 'Tap to start recording'}
+                </div>
               </div>
             </div>
 
-            {recordedAudio ? (
-              <div className="flex items-center gap-3">
-                <audio controls src={recordedAudio.url} className="w-full" />
-                <button onClick={deleteRecording} className="px-3 py-2 bg-neutral-800 rounded-lg">Delete</button>
+            {/* Playback */}
+            {recordedAudio && (
+              <div className="flex items-center gap-3 mb-5 bg-neutral-800 rounded-xl p-3">
+                <audio controls src={recordedAudio.url} className="flex-1 h-8" style={{ filter: 'invert(1)' }} />
+                <button
+                  onClick={deleteRecording}
+                  className="p-2 text-neutral-400 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-            ) : (
-              <div className="text-sm text-neutral-500">No recording yet — press the button to start.</div>
             )}
 
-            <div className="mt-6">
+            {/* Post form */}
+            <div className="space-y-3">
               <input
                 type="text"
                 value={newPostTitle}
                 onChange={(e) => setNewPostTitle(e.target.value)}
-                placeholder="Title for your voice drop"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                placeholder="Give your drop a title…"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-500 transition-colors"
               />
-              <div className="mt-3 flex gap-2">
-                <select
-                  value={newPostCategory}
-                  onChange={(e) => setNewPostCategory(e.target.value)}
-                  className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white"
-                >
-                  <option value="">Select category</option>
-                  {categories.filter(c => c.id !== 'all').map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                <button onClick={postVoiceDrop} disabled={posting} className="bg-white text-black px-4 py-2 rounded-lg">
-                  {posting ? 'Posting...' : 'Post'}
-                </button>
-              </div>
+              <select
+                value={newPostCategory}
+                onChange={(e) => setNewPostCategory(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-neutral-500 transition-colors"
+              >
+                <option value="">Select a category</option>
+                {categories.filter(c => c.id !== 'all').map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={postVoiceDrop}
+                disabled={posting || !recordedAudio || !newPostTitle || !newPostCategory}
+                className="w-full bg-white text-black font-semibold py-3 rounded-xl hover:bg-neutral-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {posting ? 'Posting…' : 'Drop it'}
+              </button>
             </div>
           </div>
         )}
