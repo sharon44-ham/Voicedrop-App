@@ -50,6 +50,7 @@ const [loadingUserProfile, setLoadingUserProfile] = useState(false);
   const timerRef = useRef(null);
   const audioRef = useRef(null);
   const audioPlayerRefs = useRef({});
+  const isPostingRef = useRef(false);
 
   const categories = [
     { id: 'all', name: 'For You', icon: Sparkles },
@@ -95,6 +96,12 @@ const [loadingUserProfile, setLoadingUserProfile] = useState(false);
 
     newSocket.on('postDeleted', ({ postId }) => {
       setPosts(prevPosts => prevPosts.filter(post => String(post.id) !== String(postId)));
+    });
+
+    newSocket.on('postReady', ({ id, audioUrl }) => {
+      setPosts(prevPosts => prevPosts.map(post =>
+        String(post.id) === String(id) ? { ...post, audioUrl, status: 'ready' } : post
+      ));
     });
 
     return () => {
@@ -476,6 +483,8 @@ const handleDelete = async (id) => {
   }, [activeTab, authToken]);
 
   const postVoiceDrop = async () => {
+    if (isPostingRef.current) return;
+
     if (!newPostTitle.trim() || !newPostCategory || !recordedAudio) {
       alert('Please add a title, category, and record audio before posting');
       return;
@@ -487,8 +496,9 @@ const handleDelete = async (id) => {
     }
 
     try {
+      isPostingRef.current = true;
       setPosting(true);
-      
+
       const ext = (recordedAudio.mimeType || '').includes('mp4') ? 'mp4'
         : (recordedAudio.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
       const formData = new FormData();
@@ -519,6 +529,7 @@ const handleDelete = async (id) => {
       console.error('Error posting:', error);
       alert('Failed to post. Make sure backend is running.');
     } finally {
+      isPostingRef.current = false;
       setPosting(false);
     }
   };
