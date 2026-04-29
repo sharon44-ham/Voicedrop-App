@@ -5,6 +5,8 @@ import io from 'socket.io-client';
 const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
 const SOCKET_URL = 'https://voicedrop-backend-99zl.onrender.com';
 
+const AVATARS = ['🎙️','🎸','🎧','🎹','🌙','🔮','🪐','🌊','🕶️','🫧','🤖','👾','🐉','🦊','🐺','🦁','🐸','🐙','🦈','🦋'];
+
 const VoiceDropApp = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -45,6 +47,10 @@ const VoiceDropApp = () => {
   const [sortMode, setSortMode] = useState('latest');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editForm, setEditForm] = useState({ username: '', bio: '', avatar: '' });
+  const [savedPosts, setSavedPosts] = useState([]);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -129,6 +135,20 @@ const VoiceDropApp = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, sortMode]);
+
+  // Auto-search with 400ms debounce — triggers as user types, no Enter needed
+  useEffect(() => {
+    if (!authToken) return;
+    if (searchQuery.trim().length === 0) {
+      setIsSearching(false);
+      fetchPosts(selectedCategory, null, sortMode);
+      return;
+    }
+    if (searchQuery.trim().length < 2) return;
+    const timer = setTimeout(() => searchPosts(searchQuery), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   const getCurrentUser = async () => {
     try {
@@ -227,6 +247,41 @@ const VoiceDropApp = () => {
     }
   };
 
+  const fetchSavedPosts = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/posts/saved`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      const data = await response.json();
+      setSavedPosts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setSavedPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async () => {
+    setProfileSaving(true);
+    try {
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser(data.user);
+        setEditingProfile(false);
+      }
+    } catch (err) {
+      console.error('Error updating profile:', err);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -236,7 +291,7 @@ const VoiceDropApp = () => {
       const endpoint = authMode === 'login' ? '/auth/login' : '/auth/signup';
       const body = authMode === 'login'
         ? { email: authForm.email, password: authForm.password }
-        : { email: authForm.email, password: authForm.password, username: authForm.username };
+        : { email: authForm.email, password: authForm.password, username: authForm.username, avatar: authForm.avatar || '🎙️' };
 
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
@@ -444,6 +499,10 @@ const VoiceDropApp = () => {
       if (response.ok) {
         const data = await response.json();
         setCurrentUser(prev => ({ ...prev, savedPosts: data.savedPosts }));
+        setPosts(prev => (Array.isArray(prev) ? prev : []).map(post =>
+          post.id === id ? { ...post, saved: data.saved } : post
+        ));
+        if (!data.saved) setSavedPosts(prev => prev.filter(p => p.id !== id));
       }
     } catch (error) {
       console.error('Error saving post:', error);
@@ -615,17 +674,38 @@ const VoiceDropApp = () => {
 
             <form onSubmit={handleAuth}>
               {authMode === 'signup' && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-neutral-300 mb-2">Username</label>
-                  <input
-                    type="text"
-                    value={authForm.username}
-                    onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
-                    placeholder="Choose a username"
-                    required
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white text-white placeholder:text-neutral-500"
-                  />
-                </div>
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">Username</label>
+                    <input
+                      type="text"
+                      value={authForm.username}
+                      onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
+                      placeholder="Choose a username"
+                      required
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white text-white placeholder:text-neutral-500"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">Pick your avatar</label>
+                    <div className="flex flex-wrap gap-2">
+                      {AVATARS.map(emoji => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setAuthForm({ ...authForm, avatar: emoji })}
+                          className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${
+                            authForm.avatar === emoji
+                              ? 'bg-white ring-2 ring-white scale-110'
+                              : 'bg-neutral-800 hover:bg-neutral-700'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="mb-4">
@@ -737,13 +817,26 @@ const VoiceDropApp = () => {
             <button
               onClick={() => setActiveTab('record')}
               className={`py-4 px-1 relative transition-colors ${
-                activeTab === 'record' 
-                  ? 'text-white font-medium' 
+                activeTab === 'record'
+                  ? 'text-white font-medium'
                   : 'text-neutral-400 hover:text-neutral-200'
               }`}
             >
               Record
               {activeTab === 'record' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+              )}
+            </button>
+            <button
+              onClick={() => { setActiveTab('saved'); fetchSavedPosts(); }}
+              className={`py-4 px-1 relative transition-colors ${
+                activeTab === 'saved'
+                  ? 'text-white font-medium'
+                  : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              Saved
+              {activeTab === 'saved' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
               )}
             </button>
@@ -755,36 +848,108 @@ const VoiceDropApp = () => {
       <div className="max-w-3xl mx-auto px-4 py-6">
         {/* Profile Modal */}
         {showProfile && currentUser && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowProfile(false)}>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowProfile(false); setEditingProfile(false); }}>
             <div className="bg-neutral-900 rounded-2xl p-6 max-w-md w-full border border-neutral-800" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center text-3xl">
-                  {currentUser.avatar}
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-white">{currentUser.username}</h2>
-                  <p className="text-sm text-neutral-400">{currentUser.email}</p>
-                  <p className="text-xs text-neutral-500 mt-1">{currentUser.bio}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-neutral-800 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-white">{currentUser.totalPosts}</div>
-                  <div className="text-xs text-neutral-400">Posts</div>
-                </div>
-                <div className="bg-neutral-800 rounded-lg p-4">
-                  <div className="text-2xl font-bold text-white">{currentUser.totalLikes}</div>
-                  <div className="text-xs text-neutral-400">Total Likes</div>
-                </div>
-              </div>
+              {!editingProfile ? (
+                <>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center text-3xl">
+                      {currentUser.avatar}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold text-white">{currentUser.username}</h2>
+                      <p className="text-sm text-neutral-400">{currentUser.email}</p>
+                      <p className="text-xs text-neutral-500 mt-1">{currentUser.bio}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-neutral-800 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-white">{currentUser.totalPosts}</div>
+                      <div className="text-xs text-neutral-400">Posts</div>
+                    </div>
+                    <div className="bg-neutral-800 rounded-lg p-4">
+                      <div className="text-2xl font-bold text-white">{currentUser.totalLikes}</div>
+                      <div className="text-xs text-neutral-400">Total Likes</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setEditForm({ username: currentUser.username, bio: currentUser.bio || '', avatar: currentUser.avatar || '🎙️' }); setEditingProfile(true); }}
+                      className="flex-1 bg-neutral-800 text-white py-2 rounded-lg font-medium hover:bg-neutral-700 transition-colors"
+                    >
+                      Edit Profile
+                    </button>
+                    <button
+                      onClick={() => setShowProfile(false)}
+                      className="flex-1 bg-white text-black py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-semibold text-white mb-5">Edit Profile</h2>
 
-              <button
-                onClick={() => setShowProfile(false)}
-                className="w-full bg-white text-black py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors"
-              >
-                Close
-              </button>
+                  <div className="mb-4">
+                    <label className="block text-xs text-neutral-400 mb-2">Avatar</label>
+                    <div className="flex flex-wrap gap-2">
+                      {AVATARS.map(emoji => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setEditForm(f => ({ ...f, avatar: emoji }))}
+                          className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${
+                            editForm.avatar === emoji
+                              ? 'bg-white ring-2 ring-white scale-110'
+                              : 'bg-neutral-800 hover:bg-neutral-700'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="block text-xs text-neutral-400 mb-1">Username</label>
+                    <input
+                      type="text"
+                      value={editForm.username}
+                      onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-500"
+                    />
+                  </div>
+
+                  <div className="mb-5">
+                    <label className="block text-xs text-neutral-400 mb-1">Bio</label>
+                    <input
+                      type="text"
+                      value={editForm.bio}
+                      onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))}
+                      maxLength={150}
+                      placeholder="Say something about yourself..."
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-500"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingProfile(false)}
+                      className="flex-1 bg-neutral-800 text-white py-2 rounded-lg font-medium hover:bg-neutral-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={updateProfile}
+                      disabled={profileSaving}
+                      className="flex-1 bg-white text-black py-2 rounded-lg font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                    >
+                      {profileSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -798,14 +963,7 @@ const VoiceDropApp = () => {
                 type="text"
                 placeholder="Search drops..."
                 value={searchQuery}
-                onChange={e => {
-                  const val = e.target.value;
-                  setSearchQuery(val);
-                  if (val.trim().length === 0) {
-                    setIsSearching(false);
-                    fetchPosts(selectedCategory, null, sortMode);
-                  }
-                }}
+                onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') searchPosts(searchQuery); }}
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
               />
@@ -971,12 +1129,12 @@ const VoiceDropApp = () => {
                         <button
                           onClick={() => handleLike(post.id)}
                           className={`flex items-center gap-1.5 transition-colors ${
-                            currentUser?.likedPosts?.includes(post.id)
+                            post.liked
                               ? 'text-red-400'
                               : 'text-neutral-500 hover:text-white'
                           }`}
                         >
-                          <Heart className={`w-4 h-4 ${currentUser?.likedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
+                          <Heart className={`w-4 h-4 ${post.liked ? 'fill-current' : ''}`} />
                           <span className="text-xs font-medium">{post.likes?.toLocaleString() || 0}</span>
                         </button>
                         <button
@@ -989,10 +1147,10 @@ const VoiceDropApp = () => {
                         <button
                           onClick={() => handleSave(post.id)}
                           className={`flex items-center gap-1.5 transition-colors ${
-                            currentUser?.savedPosts?.includes(post.id) ? 'text-yellow-400' : 'text-neutral-500 hover:text-white'
+                            post.saved ? 'text-yellow-400' : 'text-neutral-500 hover:text-white'
                           }`}
                         >
-                          <Bookmark className={`w-4 h-4 ${currentUser?.savedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
+                          <Bookmark className={`w-4 h-4 ${post.saved ? 'fill-current' : ''}`} />
                         </button>
                         <button className="flex items-center gap-1.5 text-neutral-500 hover:text-white transition-colors ml-auto">
                           <Share2 className="w-4 h-4" />
@@ -1059,6 +1217,88 @@ const VoiceDropApp = () => {
               </div>
             )}
           </>
+        )}
+
+        {activeTab === 'saved' && (
+          <div className="space-y-3">
+            {loading && (
+              <div className="space-y-3">
+                {[1,2,3].map(i => (
+                  <div key={i} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 animate-pulse">
+                    <div className="flex items-start gap-4">
+                      <div className="w-11 h-11 bg-neutral-800 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-3">
+                        <div className="h-3 bg-neutral-800 rounded w-24" />
+                        <div className="h-4 bg-neutral-800 rounded w-3/4" />
+                        <div className="h-12 bg-neutral-800 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!loading && savedPosts.length === 0 && (
+              <div className="text-center py-16 text-neutral-400">
+                <div className="text-4xl mb-3">🔖</div>
+                <div className="font-medium text-neutral-300 mb-1">No saved drops</div>
+                <div className="text-sm">Bookmark posts from the feed to find them here</div>
+              </div>
+            )}
+            {savedPosts.map(post => (
+              <div key={post.id} className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 hover:border-neutral-700 transition-all">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-neutral-800 rounded-full flex items-center justify-center flex-shrink-0 text-lg">
+                    {post.avatar || '🎙️'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white text-sm">{post.username}</span>
+                        <span className="text-neutral-600 text-xs">·</span>
+                        <span className="text-neutral-500 text-xs">{post.timestamp}</span>
+                      </div>
+                      <span className="text-xs bg-neutral-800 text-neutral-400 px-2.5 py-0.5 rounded-full capitalize">{post.category}</span>
+                    </div>
+                    <h3 className="text-sm font-medium text-white mb-3 leading-snug">{post.title}</h3>
+                    <div className="flex items-center gap-3 mb-3 bg-neutral-800/60 rounded-xl px-3 py-2.5">
+                      <button
+                        onClick={() => togglePlay(post.id, post.audioUrl)}
+                        disabled={!post.audioUrl || post.status === 'processing'}
+                        className="w-8 h-8 bg-white hover:bg-neutral-200 rounded-full flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {playingId === post.id ? <Pause className="w-3.5 h-3.5 text-black" /> : <Play className="w-3.5 h-3.5 text-black ml-0.5" />}
+                      </button>
+                      <div className="flex-1 flex items-end gap-px h-7">
+                        {post.waveform?.map((height, i) => (
+                          <div key={i} className={`flex-1 rounded-full transition-colors ${playingId === post.id ? 'bg-white' : 'bg-neutral-600'}`} style={{ height: `${height}%` }} />
+                        ))}
+                      </div>
+                      <span className="text-xs text-neutral-400 tabular-nums">{post.duration}</span>
+                    </div>
+                    {post.transcript && (
+                      <p className="text-xs text-neutral-400 italic mb-3 leading-relaxed line-clamp-2">"{post.transcript}"</p>
+                    )}
+                    <div className="flex items-center gap-5">
+                      <button
+                        onClick={() => handleLike(post.id)}
+                        className={`flex items-center gap-1.5 transition-colors ${post.liked ? 'text-red-400' : 'text-neutral-500 hover:text-white'}`}
+                      >
+                        <Heart className={`w-4 h-4 ${post.liked ? 'fill-current' : ''}`} />
+                        <span className="text-xs font-medium">{post.likes?.toLocaleString() || 0}</span>
+                      </button>
+                      <button
+                        onClick={() => handleSave(post.id)}
+                        className="flex items-center gap-1.5 text-yellow-400 hover:text-neutral-400 transition-colors"
+                        title="Unsave"
+                      >
+                        <Bookmark className="w-4 h-4 fill-current" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {activeTab === 'record' && (
