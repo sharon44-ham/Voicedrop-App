@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut, Trash2, Pencil } from 'lucide-react';
+import { Mic, Play, Pause, Heart, MessageCircle, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut, Trash2, Pencil } from 'lucide-react';
 import io from 'socket.io-client';
 
 const AVATARS = ['🎙️','🎸','🎧','🎹','🌙','🔮','🪐','🌊','🕶️','🫧','🤖','👾','🐉','🦊','🐺','🦁','🐸','🐙','🦈','🦋'];
@@ -344,32 +344,24 @@ useEffect(() => {
     }
   };
 
-  const handleShare = async (post) => {
-    const text = `"${post.title}" by ${post.username} on VoiceDrop`;
-    if (navigator.share) {
-      try { await navigator.share({ title: post.title, text }); }
-      catch (e) { if (e.name !== 'AbortError') { await navigator.clipboard.writeText(text).catch(() => {}); alert('Copied to clipboard! 📋'); } }
-    } else {
-      await navigator.clipboard.writeText(text).catch(() => {});
-      alert('Copied to clipboard! 📋');
-    }
-  };
-
-  const handleLike = async (id) => {
+const handleLike = async (id) => {
     if (!authToken) {
       alert('Please login to like posts');
       return;
     }
 
-    const snapshot = posts;
+    const postsSnapshot = posts;
+    const savedSnapshot = savedPosts;
     const isLiked = currentUser?.likedPosts?.includes(id);
+    const likeDelta = isLiked ? -1 : 1;
 
-    // Optimistic update — instant UI
-    setPosts(prev => prev.map(post =>
-      post.id === id
-        ? { ...post, likes: isLiked ? Math.max(0, post.likes - 1) : post.likes + 1 }
-        : post
-    ));
+    const updateLikes = (list) => list.map(post =>
+      post.id === id ? { ...post, likes: Math.max(0, post.likes + likeDelta) } : post
+    );
+
+    // Optimistic update — instant UI on both feeds
+    setPosts(prev => updateLikes(prev));
+    setSavedPosts(prev => updateLikes(prev));
     setCurrentUser(prev => ({
       ...prev,
       likedPosts: isLiked
@@ -384,15 +376,19 @@ useEffect(() => {
       });
       if (response.ok) {
         const data = await response.json();
-        setPosts(prev => prev.map(post =>
+        const syncLikes = (list) => list.map(post =>
           post.id === id ? { ...post, likes: data.likes } : post
-        ));
+        );
+        setPosts(prev => syncLikes(prev));
+        setSavedPosts(prev => syncLikes(prev));
       } else {
-        setPosts(snapshot);
+        setPosts(postsSnapshot);
+        setSavedPosts(savedSnapshot);
       }
     } catch (error) {
       console.error('Error liking post:', error);
-      setPosts(snapshot);
+      setPosts(postsSnapshot);
+      setSavedPosts(savedSnapshot);
     }
   };
   
@@ -1123,10 +1119,6 @@ const handleDelete = async (id) => {
                         >
                           <Bookmark className={`w-4 h-4 ${currentUser?.savedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
                         </button>
-                        <button onClick={() => handleShare(post)} className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                        
                         {currentUser?.username === post.username && (
                           <button 
                             onClick={() => handleDelete(post.id)}
