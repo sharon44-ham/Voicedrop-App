@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut, Trash2 } from 'lucide-react';
+import { Mic, Play, Pause, Heart, MessageCircle, Share2, TrendingUp, Clock, Sparkles, ChevronDown, StopCircle, Users, Radio, Bookmark, LogOut, Trash2, Pencil } from 'lucide-react';
 import io from 'socket.io-client';
-const API_URL = 'https://voicedrop-backend-99zl.onrender.com/api';
-const SOCKET_URL = 'https://voicedrop-backend-99zl.onrender.com';
+
+const AVATARS = ['🎙️','🎸','🎧','🎹','🌙','🔮','🪐','🌊','🕶️','🫧','🤖','👾','🐉','🦊','🐺','🦁','🐸','🐙','🦈','🦋'];
+const API_URL = process.env.REACT_APP_API_URL || 'https://voicedrop-backend-99zl.onrender.com/api';
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'https://voicedrop-backend-99zl.onrender.com';
 
 const VoiceDropApp = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -272,7 +274,12 @@ useEffect(() => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+        : '';
+      mediaRecorderRef.current = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
@@ -280,9 +287,10 @@ useEffect(() => {
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const actualMime = mediaRecorderRef.current.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMime });
         const audioUrl = URL.createObjectURL(audioBlob);
-        setRecordedAudio({ blob: audioBlob, url: audioUrl });
+        setRecordedAudio({ blob: audioBlob, url: audioUrl, mimeType: actualMime });
         stream.getTracks().forEach(track => track.stop());
         
         if (socket) {
@@ -320,63 +328,71 @@ useEffect(() => {
 
   const togglePlay = (id, audioUrl) => {
     if (playingId === id) {
-      if (audioPlayerRefs.current[id]) {
-        audioPlayerRefs.current[id].pause();
-      }
+      if (audioPlayerRefs.current[id]) audioPlayerRefs.current[id].pause();
       setPlayingId(null);
     } else {
       if (playingId && audioPlayerRefs.current[playingId]) {
         audioPlayerRefs.current[playingId].pause();
       }
-      
-      if (!audioPlayerRefs.current[id]) {
-        audioPlayerRefs.current[id] = new Audio(audioUrl);
-        audioPlayerRefs.current[id].onended = () => {
-          setPlayingId(null);
-        };
-      }
-      
-      audioPlayerRefs.current[id].play().catch(err => {
-        console.error('Error playing audio:', err);
-        alert('Failed to play audio. The URL might have expired.');
-      });
-      
+      // Always create fresh — presigned URLs expire and cached objects silently fail
+      const audio = new Audio(audioUrl);
+      audio.onended = () => setPlayingId(null);
+      audio.onerror = () => { setPlayingId(null); alert('Could not play audio. Try refreshing the page.'); };
+      audioPlayerRefs.current[id] = audio;
+      audio.play().catch(() => { setPlayingId(null); alert('Could not play audio. Try refreshing the page.'); });
       setPlayingId(id);
     }
   };
 
- const handleLike = async (id) => {
+  const handleShare = async (post) => {
+    const text = `"${post.title}" by ${post.username} on VoiceDrop`;
+    if (navigator.share) {
+      try { await navigator.share({ title: post.title, text }); }
+      catch (e) { if (e.name !== 'AbortError') { await navigator.clipboard.writeText(text).catch(() => {}); alert('Copied to clipboard! 📋'); } }
+    } else {
+      await navigator.clipboard.writeText(text).catch(() => {});
+      alert('Copied to clipboard! 📋');
+    }
+  };
+
+  const handleLike = async (id) => {
     if (!authToken) {
       alert('Please login to like posts');
       return;
     }
 
+    const snapshot = posts;
+    const isLiked = currentUser?.likedPosts?.includes(id);
+
+    // Optimistic update — instant UI
+    setPosts(prev => prev.map(post =>
+      post.id === id
+        ? { ...post, likes: isLiked ? Math.max(0, post.likes - 1) : post.likes + 1 }
+        : post
+    ));
+    setCurrentUser(prev => ({
+      ...prev,
+      likedPosts: isLiked
+        ? prev.likedPosts.filter(pid => pid !== id)
+        : [...(prev.likedPosts || []), id]
+    }));
+
     try {
       const response = await fetch(`${API_URL}/posts/${id}/like`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' }
       });
-      
       if (response.ok) {
         const data = await response.json();
-        setPosts(prev => prev.map(post => post.id === id ? data : post));
-        
-        // Update currentUser's likedPosts
-        setCurrentUser(prev => {
-          const isLiked = prev.likedPosts?.includes(id);
-          return {
-            ...prev,
-            likedPosts: isLiked 
-              ? prev.likedPosts.filter(postId => postId !== id)
-              : [...(prev.likedPosts || []), id]
-          };
-        });
+        setPosts(prev => prev.map(post =>
+          post.id === id ? { ...post, likes: data.likes } : post
+        ));
+      } else {
+        setPosts(snapshot);
       }
     } catch (error) {
       console.error('Error liking post:', error);
+      setPosts(snapshot);
     }
   };
   
@@ -477,8 +493,10 @@ const handleDelete = async (id) => {
     try {
       setPosting(true);
       
+      const ext = (recordedAudio.mimeType || '').includes('mp4') ? 'mp4'
+        : (recordedAudio.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
       const formData = new FormData();
-      formData.append('audio', recordedAudio.blob, 'recording.wav');
+      formData.append('audio', recordedAudio.blob, `recording.${ext}`);
       formData.append('title', newPostTitle);
       formData.append('category', newPostCategory);
       formData.append('duration', formatTime(recordingTime));
@@ -761,8 +779,17 @@ const handleDelete = async (id) => {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowProfile(false)}>
             <div className="bg-neutral-900 rounded-2xl p-6 max-w-md w-full border border-neutral-800" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center text-3xl">
-                  {currentUser.avatar}
+                <div className="relative">
+                  <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center text-3xl">
+                    {currentUser.avatar}
+                  </div>
+                  <button
+                    onClick={() => { setEditForm({ username: currentUser.username, bio: currentUser.bio || '', avatar: currentUser.avatar || '🎙️' }); setShowProfile(false); setShowEditProfile(true); }}
+                    className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center hover:bg-neutral-200 transition-colors shadow"
+                    title="Change avatar"
+                  >
+                    <Pencil className="w-3 h-3 text-black" />
+                  </button>
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold text-white">{currentUser.username}</h2>
@@ -813,21 +840,23 @@ const handleDelete = async (id) => {
       
       <form onSubmit={handleUpdateProfile}>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Avatar (Emoji)</label>
-          <div className="flex items-center gap-3">
-            <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center text-3xl">
-              {editForm.avatar}
-            </div>
-            <input
-              type="text"
-              value={editForm.avatar}
-              onChange={(e) => setEditForm({ ...editForm, avatar: e.target.value })}
-              placeholder="🎭"
-              maxLength={2}
-              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white text-white placeholder:text-neutral-500"
-            />
+          <label className="block text-sm font-medium text-neutral-300 mb-2">Choose your avatar</label>
+          <div className="flex flex-wrap gap-2">
+            {AVATARS.map(emoji => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => setEditForm({ ...editForm, avatar: emoji })}
+                className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${
+                  editForm.avatar === emoji
+                    ? 'bg-white ring-2 ring-white scale-110'
+                    : 'bg-neutral-800 hover:bg-neutral-700'
+                }`}
+              >
+                {emoji}
+              </button>
+            ))}
           </div>
-          <p className="text-xs text-neutral-500 mt-1">Choose any emoji</p>
         </div>
 
         <div className="mb-4">
@@ -1094,7 +1123,7 @@ const handleDelete = async (id) => {
                         >
                           <Bookmark className={`w-4 h-4 ${currentUser?.savedPosts?.includes(post.id) ? 'fill-current' : ''}`} />
                         </button>
-                        <button className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
+                        <button onClick={() => handleShare(post)} className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors">
                           <Share2 className="w-4 h-4" />
                         </button>
                         
